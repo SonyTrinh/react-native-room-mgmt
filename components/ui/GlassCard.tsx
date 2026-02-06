@@ -1,49 +1,49 @@
-import { StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
-import { GlassView } from './GlassView';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
+import { useCallback } from 'react'
+import { StyleSheet, TouchableOpacity, ViewStyle } from 'react-native'
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
   withSpring,
-  withTiming 
-} from 'react-native-reanimated';
-import { useCallback } from 'react';
+  withTiming,
+} from 'react-native-reanimated'
+import { GlassView } from './GlassView'
 
 interface GlassCardProps {
-  children: React.ReactNode;
-  onPress?: () => void;
-  style?: ViewStyle;
-  intensity?: number;
-  borderRadius?: number;
-  disabled?: boolean;
+  children: React.ReactNode
+  onPress?: () => void
+  style?: ViewStyle
+  intensity?: number
+  borderRadius?: number
+  disabled?: boolean
 }
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity)
 
 export function GlassCard({
   children,
   onPress,
   style,
   intensity = 60,
-  borderRadius = 20,
+  borderRadius = 8,
   disabled = false,
 }: GlassCardProps) {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
+  const scale = useSharedValue(1)
+  const opacity = useSharedValue(1)
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
-    opacity.value = withTiming(0.9, { duration: 100 });
-  }, []);
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 })
+    opacity.value = withTiming(0.9, { duration: 100 })
+  }, [])
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-    opacity.value = withTiming(1, { duration: 100 });
-  }, []);
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 })
+    opacity.value = withTiming(1, { duration: 100 })
+  }, [])
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
-  }));
+  }))
 
   if (onPress && !disabled) {
     return (
@@ -54,20 +54,28 @@ export function GlassCard({
         style={[styles.card, animatedStyle, style]}
         activeOpacity={1}
       >
-        <GlassView intensity={intensity} borderRadius={borderRadius} style={styles.glass}>
+        <GlassView
+          intensity={intensity}
+          borderRadius={borderRadius}
+          style={styles.glass}
+        >
           {children}
         </GlassView>
       </AnimatedTouchable>
-    );
+    )
   }
 
   return (
     <Animated.View style={[styles.card, animatedStyle, style]}>
-      <GlassView intensity={intensity} borderRadius={borderRadius} style={styles.glass}>
+      <GlassView
+        intensity={intensity}
+        borderRadius={borderRadius}
+        style={styles.glass}
+      >
         {children}
       </GlassView>
     </Animated.View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -81,4 +89,4 @@ const styles = StyleSheet.create({
   glass: {
     flex: 1,
   },
-});
+})

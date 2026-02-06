@@ -1,49 +1,53 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, ScrollView, View, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router'
+import { useCallback, useState } from 'react'
+import { Alert, ScrollView, StyleSheet, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { GlassCard } from '@/components/ui/GlassCard';
-import { GlassButton } from '@/components/ui/GlassButton';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import DataStore from '@/store/DataStore';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemedText } from '@/components/themed-text'
+import { ThemedView } from '@/components/themed-view'
+import { GlassButton } from '@/components/ui/GlassButton'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { IconSymbol } from '@/components/ui/icon-symbol'
+import { useColorScheme } from '@/hooks/use-color-scheme'
+import DataStore from '@/store/DataStore'
 
 export default function SettingsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const colorScheme = useColorScheme()
+  const isDark = colorScheme === 'dark'
   const [stats, setStats] = useState({
     branches: 0,
     rooms: 0,
     paidRooms: 0,
     unpaidRooms: 0,
-  });
+  })
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  const loadStats = useCallback(async () => {
+    const branches = await DataStore.getBranches()
+    const rooms = await DataStore.getRooms()
+    const payments = await DataStore.getPayments()
 
-  const loadStats = async () => {
-    const branches = await DataStore.getBranches();
-    const rooms = await DataStore.getRooms();
-    const payments = await DataStore.getPayments();
-    
-    const now = new Date();
-    const currentMonth = now.toLocaleString('default', { month: 'long' });
-    const currentYear = now.getFullYear();
-    
+    const now = new Date()
+    const currentMonth = now.toLocaleString('default', { month: 'long' })
+    const currentYear = now.getFullYear()
+
     const paidRooms = payments.filter(
-      p => p.month === currentMonth && p.year === currentYear && p.isPaid
-    ).length;
-    
+      (p: { month: string; year: number; isPaid: boolean }) =>
+        p.month === currentMonth && p.year === currentYear && p.isPaid,
+    ).length
+
     setStats({
       branches: branches.length,
       rooms: rooms.length,
       paidRooms,
       unpaidRooms: rooms.length - paidRooms,
-    });
-  };
+    })
+  }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats()
+    }, [loadStats]),
+  )
 
   const handleClearAllData = () => {
     Alert.alert(
@@ -51,30 +55,32 @@ export default function SettingsScreen() {
       'Are you sure you want to delete all data? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Clear All', 
+        {
+          text: 'Clear All',
           style: 'destructive',
           onPress: async () => {
-            await DataStore.saveBranches([]);
-            await DataStore.saveRooms([]);
-            await DataStore.saveUtilities([]);
-            await DataStore.savePayments([]);
-            Alert.alert('Success', 'All data has been cleared');
-            loadStats();
-          }
+            await DataStore.saveBranches([])
+            await DataStore.saveRooms([])
+            await DataStore.saveUtilities([])
+            await DataStore.savePayments([])
+            Alert.alert('Success', 'All data has been cleared')
+            loadStats()
+          },
         },
-      ]
-    );
-  };
+      ],
+    )
+  }
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Settings</ThemedText>
+          <ThemedText type='title' style={styles.headerTitle}>
+            Settings
+          </ThemedText>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -84,27 +90,53 @@ export default function SettingsScreen() {
             <ThemedText style={styles.sectionTitle}>Overview</ThemedText>
             <View style={styles.statsGrid}>
               <GlassCard style={styles.statCard} intensity={isDark ? 30 : 50}>
-                <IconSymbol name="building.2.fill" size={28} color="#0a7ea4" />
-                <ThemedText style={styles.statNumber}>{stats.branches}</ThemedText>
+                <IconSymbol name='building.2.fill' size={28} color='#0a7ea4' />
+                <ThemedText type='subtitle' style={styles.statNumber}>
+                  {stats.branches}
+                </ThemedText>
                 <ThemedText style={styles.statLabel}>Branches</ThemedText>
               </GlassCard>
               <GlassCard style={styles.statCard} intensity={isDark ? 30 : 50}>
-                <IconSymbol name="bed.double.fill" size={28} color="#30D158" />
-                <ThemedText style={styles.statNumber}>{stats.rooms}</ThemedText>
+                <IconSymbol name='bed.double.fill' size={28} color='#30D158' />
+                <ThemedText type='subtitle' style={styles.statNumber}>
+                  {stats.rooms}
+                </ThemedText>
                 <ThemedText style={styles.statLabel}>Rooms</ThemedText>
               </GlassCard>
             </View>
-            
+
             <View style={styles.statsGrid}>
               <GlassCard style={styles.statCard} intensity={isDark ? 30 : 50}>
-                <IconSymbol name="checkmark.circle.fill" size={28} color="#30D158" />
-                <ThemedText style={[styles.statNumber, styles.paidText]}>{stats.paidRooms}</ThemedText>
-                <ThemedText style={styles.statLabel}>Paid This Month</ThemedText>
+                <IconSymbol
+                  name='checkmark.circle.fill'
+                  size={28}
+                  color='#30D158'
+                />
+                <ThemedText
+                  type='title'
+                  style={[styles.statNumber, styles.paidText]}
+                >
+                  {stats.paidRooms}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>
+                  Paid This Month
+                </ThemedText>
               </GlassCard>
               <GlassCard style={styles.statCard} intensity={isDark ? 30 : 50}>
-                <IconSymbol name="xmark.circle.fill" size={28} color="#FF453A" />
-                <ThemedText style={[styles.statNumber, styles.unpaidText]}>{stats.unpaidRooms}</ThemedText>
-                <ThemedText style={styles.statLabel}>Unpaid This Month</ThemedText>
+                <IconSymbol
+                  name='xmark.circle.fill'
+                  size={28}
+                  color='#FF453A'
+                />
+                <ThemedText
+                  type='title'
+                  style={[styles.statNumber, styles.unpaidText]}
+                >
+                  {stats.unpaidRooms}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>
+                  Unpaid This Month
+                </ThemedText>
               </GlassCard>
             </View>
           </View>
@@ -114,11 +146,21 @@ export default function SettingsScreen() {
             <ThemedText style={styles.sectionTitle}>About</ThemedText>
             <GlassCard style={styles.infoCard} intensity={isDark ? 20 : 40}>
               <View style={styles.infoRow}>
-                <IconSymbol name="info.circle" size={20} color={isDark ? '#FFFFFF' : '#11181C'} />
-                <ThemedText style={styles.infoText}>Room Management App</ThemedText>
+                <IconSymbol
+                  name='info.circle'
+                  size={20}
+                  color={isDark ? '#FFFFFF' : '#11181C'}
+                />
+                <ThemedText style={styles.infoText}>
+                  Room Management App
+                </ThemedText>
               </View>
               <View style={styles.infoRow}>
-                <IconSymbol name="number" size={20} color={isDark ? '#FFFFFF' : '#11181C'} />
+                <IconSymbol
+                  name='number'
+                  size={20}
+                  color={isDark ? '#FFFFFF' : '#11181C'}
+                />
                 <ThemedText style={styles.infoText}>Version 1.0.0</ThemedText>
               </View>
             </GlassCard>
@@ -126,18 +168,20 @@ export default function SettingsScreen() {
 
           {/* Danger Zone */}
           <View>
-            <ThemedText style={[styles.sectionTitle, styles.dangerTitle]}>Danger Zone</ThemedText>
+            <ThemedText style={[styles.sectionTitle, styles.dangerTitle]}>
+              Danger Zone
+            </ThemedText>
             <GlassButton
-              title="Clear All Data"
+              title='Clear All Data'
               onPress={handleClearAllData}
-              variant="danger"
+              variant='danger'
               style={styles.dangerButton}
             />
           </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -217,4 +261,4 @@ const styles = StyleSheet.create({
   dangerButton: {
     marginTop: 8,
   },
-});
+})
