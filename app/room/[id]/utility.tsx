@@ -1,57 +1,115 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, ScrollView, View, Alert, TouchableOpacity } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import Animated, { FadeInUp } from 'react-native-reanimated'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { GlassInput } from '@/components/ui/GlassInput';
-import { GlassButton } from '@/components/ui/GlassButton';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import DataStore from '@/store/DataStore';
-import { Room } from '@/types';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemedText } from '@/components/themed-text'
+import { ThemedView } from '@/components/themed-view'
+import { GlassButton } from '@/components/ui/GlassButton'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { GlassInput } from '@/components/ui/GlassInput'
+import { IconSymbol } from '@/components/ui/icon-symbol'
+import { useColorScheme } from '@/hooks/use-color-scheme'
+import DataStore from '@/store/DataStore'
+import { AppSettings, Room } from '@/types'
 
 const months = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
 
 export default function RecordUtilityScreen() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
-  const [room, setRoom] = useState<Room | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [electricUsage, setElectricUsage] = useState('');
-  const [waterUsage, setWaterUsage] = useState('');
-  const [electricCost, setElectricCost] = useState('');
-  const [waterCost, setWaterCost] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter()
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const colorScheme = useColorScheme()
+  const isDark = colorScheme === 'dark'
+
+  const [room, setRoom] = useState<Room | null>(null)
+  const [settings, setSettings] = useState<AppSettings>({
+    waterPrice: 0,
+    electricPrice: 0,
+  })
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [electricUsage, setElectricUsage] = useState('')
+  const [waterUsage, setWaterUsage] = useState('')
+  const [electricCost, setElectricCost] = useState('')
+  const [waterCost, setWaterCost] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    loadRoom();
-  }, [id]);
+    loadRoom()
+    loadSettings()
+  }, [id])
 
   const loadRoom = async () => {
-    const rooms = await DataStore.getRooms();
-    const found = rooms.find(r => r.id === id);
+    const rooms = await DataStore.getRooms()
+    const found = rooms.find((r) => r.id === id)
     if (found) {
-      setRoom(found);
+      setRoom(found)
     }
-  };
+  }
+
+  const loadSettings = async () => {
+    const loadedSettings = await DataStore.getSettings()
+    setSettings(loadedSettings)
+  }
+
+  // Auto-calculate electric cost when usage changes
+  const handleElectricUsageChange = useCallback(
+    (value: string) => {
+      setElectricUsage(value)
+      const usage = parseFloat(value) || 0
+      const cost = usage * settings.electricPrice
+      setElectricCost(cost > 0 ? cost.toFixed(2) : '')
+    },
+    [settings.electricPrice],
+  )
+
+  // Auto-calculate water cost when usage changes
+  const handleWaterUsageChange = useCallback(
+    (value: string) => {
+      setWaterUsage(value)
+      const usage = parseFloat(value) || 0
+      const cost = usage * settings.waterPrice
+      setWaterCost(cost > 0 ? cost.toFixed(2) : '')
+    },
+    [settings.waterPrice],
+  )
+
+  // Allow manual override of costs
+  const handleElectricCostChange = (value: string) => {
+    setElectricCost(value)
+  }
+
+  const handleWaterCostChange = (value: string) => {
+    setWaterCost(value)
+  }
 
   const handleSave = async () => {
     if (!electricUsage.trim() || !waterUsage.trim()) {
-      Alert.alert('Error', 'Please enter utility usage values');
-      return;
+      Alert.alert('Error', 'Please enter utility usage values')
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
     try {
       await DataStore.createUtility({
         roomId: id,
@@ -61,27 +119,37 @@ export default function RecordUtilityScreen() {
         waterUsage: parseFloat(waterUsage) || 0,
         electricCost: parseFloat(electricCost) || 0,
         waterCost: parseFloat(waterCost) || 0,
-      });
-      router.back();
+      })
+      router.back()
     } catch (error) {
-      Alert.alert('Error', 'Failed to record utility usage');
+      Alert.alert('Error', 'Failed to record utility usage')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
+
+  const totalCost =
+    (parseFloat(electricCost) || 0) + (parseFloat(waterCost) || 0)
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <IconSymbol name="chevron.left" size={28} color={isDark ? '#FFFFFF' : '#11181C'} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol
+              name='chevron.left'
+              size={28}
+              color={isDark ? '#FFFFFF' : '#11181C'}
+            />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>Record Utilities</ThemedText>
           <View style={styles.placeholder} />
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -96,81 +164,154 @@ export default function RecordUtilityScreen() {
                     onPress={() => setSelectedMonth(index)}
                     style={[
                       styles.monthButton,
-                      selectedMonth === index && styles.selectedMonth
+                      selectedMonth === index && styles.selectedMonth,
                     ]}
                   >
-                    <ThemedText style={[
-                      styles.monthText,
-                      selectedMonth === index && styles.selectedMonthText
-                    ]}>
+                    <ThemedText
+                      style={[
+                        styles.monthText,
+                        selectedMonth === index && styles.selectedMonthText,
+                      ]}
+                    >
                       {month.substring(0, 3)}
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               <View style={styles.yearContainer}>
-                <TouchableOpacity onPress={() => setSelectedYear(selectedYear - 1)}>
-                  <IconSymbol name="chevron.left" size={24} color={isDark ? '#FFFFFF' : '#11181C'} />
+                <TouchableOpacity
+                  onPress={() => setSelectedYear(selectedYear - 1)}
+                >
+                  <IconSymbol
+                    name='chevron.left'
+                    size={24}
+                    color={isDark ? '#FFFFFF' : '#11181C'}
+                  />
                 </TouchableOpacity>
                 <ThemedText style={styles.yearText}>{selectedYear}</ThemedText>
-                <TouchableOpacity onPress={() => setSelectedYear(selectedYear + 1)}>
-                  <IconSymbol name="chevron.right" size={24} color={isDark ? '#FFFFFF' : '#11181C'} />
+                <TouchableOpacity
+                  onPress={() => setSelectedYear(selectedYear + 1)}
+                >
+                  <IconSymbol
+                    name='chevron.right'
+                    size={24}
+                    color={isDark ? '#FFFFFF' : '#11181C'}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
           </Animated.View>
 
           <Animated.View entering={FadeInUp.delay(200)}>
-            <ThemedText style={styles.sectionTitle}>Electric Usage</ThemedText>
+            <View style={styles.priceInfoContainer}>
+              <ThemedText style={styles.sectionTitle}>
+                Electric Usage
+              </ThemedText>
+              {settings.electricPrice > 0 && (
+                <ThemedText style={styles.priceInfo}>
+                  ${settings.electricPrice.toFixed(2)}/kWh
+                </ThemedText>
+              )}
+            </View>
             <GlassInput
-              label="Usage (kWh)"
-              placeholder="Enter electric usage"
+              label='Usage (kWh)'
+              placeholder='Enter electric usage'
               value={electricUsage}
-              onChangeText={setElectricUsage}
-              keyboardType="decimal-pad"
-              icon={<IconSymbol name="bolt" size={20} color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'} />}
+              onChangeText={handleElectricUsageChange}
+              keyboardType='decimal-pad'
+              icon={
+                <IconSymbol
+                  name='bolt.fill'
+                  size={20}
+                  color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
+                />
+              }
             />
             <GlassInput
-              label="Cost ($)"
-              placeholder="Enter electric cost"
+              label='Cost ($)'
+              placeholder='Auto-calculated from usage'
               value={electricCost}
-              onChangeText={setElectricCost}
-              keyboardType="decimal-pad"
-              icon={<IconSymbol name="dollarsign.circle" size={20} color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'} />}
+              onChangeText={handleElectricCostChange}
+              keyboardType='decimal-pad'
+              icon={
+                <IconSymbol
+                  name='dollarsign.circle'
+                  size={20}
+                  color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
+                />
+              }
             />
           </Animated.View>
 
           <Animated.View entering={FadeInUp.delay(300)}>
-            <ThemedText style={styles.sectionTitle}>Water Usage</ThemedText>
+            <View style={styles.priceInfoContainer}>
+              <ThemedText style={styles.sectionTitle}>Water Usage</ThemedText>
+              {settings.waterPrice > 0 && (
+                <ThemedText style={styles.priceInfo}>
+                  ${settings.waterPrice.toFixed(2)}/m³
+                </ThemedText>
+              )}
+            </View>
             <GlassInput
-              label="Usage (m³)"
-              placeholder="Enter water usage"
+              label='Usage (m³)'
+              placeholder='Enter water usage'
               value={waterUsage}
-              onChangeText={setWaterUsage}
-              keyboardType="decimal-pad"
-              icon={<IconSymbol name="drop" size={20} color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'} />}
+              onChangeText={handleWaterUsageChange}
+              keyboardType='decimal-pad'
+              icon={
+                <IconSymbol
+                  name='drop.fill'
+                  size={20}
+                  color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
+                />
+              }
             />
             <GlassInput
-              label="Cost ($)"
-              placeholder="Enter water cost"
+              label='Cost ($)'
+              placeholder='Auto-calculated from usage'
               value={waterCost}
-              onChangeText={setWaterCost}
-              keyboardType="decimal-pad"
-              icon={<IconSymbol name="dollarsign.circle" size={20} color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'} />}
+              onChangeText={handleWaterCostChange}
+              keyboardType='decimal-pad'
+              icon={
+                <IconSymbol
+                  name='dollarsign.circle'
+                  size={20}
+                  color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
+                />
+              }
             />
           </Animated.View>
 
-          <Animated.View entering={FadeInUp.delay(400)} style={styles.buttonContainer}>
+          {totalCost > 0 && (
+            <Animated.View
+              entering={FadeInUp.delay(350)}
+              style={styles.totalContainer}
+            >
+              <GlassCard style={styles.totalCard} intensity={isDark ? 30 : 50}>
+                <ThemedText style={styles.totalLabel}>
+                  Total Utility Cost
+                </ThemedText>
+                <ThemedText type='title' style={styles.totalAmount}>
+                  ${totalCost.toFixed(2)}
+                </ThemedText>
+              </GlassCard>
+            </Animated.View>
+          )}
+
+          <Animated.View
+            entering={FadeInUp.delay(400)}
+            style={styles.buttonContainer}
+          >
             <GlassButton
-              title="Cancel"
+              title='Cancel'
               onPress={() => router.back()}
-              variant="secondary"
+              variant='secondary'
               style={styles.button}
             />
             <GlassButton
-              title={isLoading ? "Saving..." : "Save Record"}
+              title={isLoading ? 'Saving...' : 'Save Record'}
               onPress={handleSave}
-              variant="primary"
+              variant='primary'
               style={styles.button}
               disabled={isLoading}
             />
@@ -178,7 +319,7 @@ export default function RecordUtilityScreen() {
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -252,6 +393,33 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
   },
+  priceInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceInfo: {
+    fontSize: 14,
+    color: '#0a7ea4',
+    fontWeight: '500',
+  },
+  totalContainer: {
+    marginTop: 20,
+  },
+  totalCard: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  totalLabel: {
+    fontSize: 16,
+    opacity: 0.6,
+  },
+  totalAmount: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginTop: 8,
+    color: '#30D158',
+  },
   buttonContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -261,4 +429,4 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
   },
-});
+})

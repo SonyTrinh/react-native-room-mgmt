@@ -1,11 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Branch, Room, UtilityUsage, Payment, RoomWithDetails, BranchWithRooms } from '@/types';
+import { Branch, Room, UtilityUsage, Payment, RoomWithDetails, BranchWithRooms, AppSettings } from '@/types';
 
 const STORAGE_KEYS = {
   BRANCHES: '@rooms_mgmt_branches',
   ROOMS: '@rooms_mgmt_rooms',
   UTILITIES: '@rooms_mgmt_utilities',
   PAYMENTS: '@rooms_mgmt_payments',
+  SETTINGS: '@rooms_mgmt_settings',
+};
+
+const DEFAULT_SETTINGS: AppSettings = {
+  waterPrice: 0,
+  electricPrice: 0,
 };
 
 class DataStore {
@@ -263,6 +269,25 @@ class DataStore {
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 
                    'July', 'August', 'September', 'October', 'November', 'December'];
     return months.indexOf(month);
+  }
+
+  // Settings
+  static async getSettings(): Promise<AppSettings> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      return data ? JSON.parse(data) : DEFAULT_SETTINGS;
+    } catch (error) {
+      console.error('Error getting settings:', error);
+      return DEFAULT_SETTINGS;
+    }
+  }
+
+  static async saveSettings(settings: AppSettings): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
   }
 }
 

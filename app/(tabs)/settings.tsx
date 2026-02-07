@@ -7,9 +7,11 @@ import { ThemedText } from '@/components/themed-text'
 import { ThemedView } from '@/components/themed-view'
 import { GlassButton } from '@/components/ui/GlassButton'
 import { GlassCard } from '@/components/ui/GlassCard'
+import { GlassInput } from '@/components/ui/GlassInput'
 import { IconSymbol } from '@/components/ui/icon-symbol'
 import { useColorScheme } from '@/hooks/use-color-scheme'
 import DataStore from '@/store/DataStore'
+import { AppSettings } from '@/types'
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme()
@@ -20,6 +22,13 @@ export default function SettingsScreen() {
     paidRooms: 0,
     unpaidRooms: 0,
   })
+  const [settings, setSettings] = useState<AppSettings>({
+    waterPrice: 0,
+    electricPrice: 0,
+  })
+  const [waterPriceInput, setWaterPriceInput] = useState('')
+  const [electricPriceInput, setElectricPriceInput] = useState('')
+  const [hasChanges, setHasChanges] = useState(false)
 
   const loadStats = useCallback(async () => {
     const branches = await DataStore.getBranches()
@@ -43,11 +52,42 @@ export default function SettingsScreen() {
     })
   }, [])
 
+  const loadSettings = useCallback(async () => {
+    const loadedSettings = await DataStore.getSettings()
+    setSettings(loadedSettings)
+    setWaterPriceInput(loadedSettings.waterPrice > 0 ? loadedSettings.waterPrice.toString() : '')
+    setElectricPriceInput(loadedSettings.electricPrice > 0 ? loadedSettings.electricPrice.toString() : '')
+    setHasChanges(false)
+  }, [])
+
   useFocusEffect(
     useCallback(() => {
       loadStats()
-    }, [loadStats]),
+      loadSettings()
+    }, [loadStats, loadSettings]),
   )
+
+  const handleWaterPriceChange = (value: string) => {
+    setWaterPriceInput(value)
+    setHasChanges(true)
+  }
+
+  const handleElectricPriceChange = (value: string) => {
+    setElectricPriceInput(value)
+    setHasChanges(true)
+  }
+
+  const handleSaveSettings = async () => {
+    const newSettings: AppSettings = {
+      waterPrice: parseFloat(waterPriceInput) || 0,
+      electricPrice: parseFloat(electricPriceInput) || 0,
+    }
+
+    await DataStore.saveSettings(newSettings)
+    setSettings(newSettings)
+    setHasChanges(false)
+    Alert.alert('Success', 'Settings saved successfully')
+  }
 
   const handleClearAllData = () => {
     Alert.alert(
@@ -141,6 +181,50 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Utility Prices Section */}
+          <View>
+            <ThemedText style={styles.sectionTitle}>Utility Prices</ThemedText>
+            <GlassCard style={styles.pricesCard} intensity={isDark ? 20 : 40}>
+              <GlassInput
+                label='Water Price ($/m³)'
+                placeholder='Enter price per cubic meter'
+                value={waterPriceInput}
+                onChangeText={handleWaterPriceChange}
+                keyboardType='decimal-pad'
+                icon={
+                  <IconSymbol
+                    name='drop.fill'
+                    size={20}
+                    color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
+                  />
+                }
+              />
+              <View style={styles.priceSpacer} />
+              <GlassInput
+                label='Electric Price ($/kWh)'
+                placeholder='Enter price per kWh'
+                value={electricPriceInput}
+                onChangeText={handleElectricPriceChange}
+                keyboardType='decimal-pad'
+                icon={
+                  <IconSymbol
+                    name='bolt.fill'
+                    size={20}
+                    color={isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
+                  />
+                }
+              />
+              {hasChanges && (
+                <GlassButton
+                  title='Save Prices'
+                  onPress={handleSaveSettings}
+                  variant='primary'
+                  style={styles.saveButton}
+                />
+              )}
+            </GlassCard>
+          </View>
+
           {/* App Info */}
           <View>
             <ThemedText style={styles.sectionTitle}>About</ThemedText>
@@ -223,7 +307,6 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-
   statNumber: {
     fontSize: 32,
     fontWeight: '700',
@@ -239,6 +322,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.6,
     marginTop: 4,
+  },
+  pricesCard: {
+    marginBottom: 20,
+    padding: 16,
+  },
+  priceSpacer: {
+    height: 12,
+  },
+  saveButton: {
+    marginTop: 16,
   },
   infoCard: {
     marginBottom: 20,

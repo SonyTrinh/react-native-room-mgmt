@@ -54,3 +54,8 @@ export interface RoomWithDetails extends Room {
 export interface BranchWithRooms extends Branch {
   rooms: Room[];
 }
+
+export interface AppSettings {
+  waterPrice: number;
+  electricPrice: number;
+}
